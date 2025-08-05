@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Anime Sword Slice GIF Maker with Multiple Effects</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background: #222;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    #dropzone {
+      border: 2px dashed #888;
+      border-radius: 10px;
+      width: 300px;
+      height: 200px;
+      line-height: 200px;
+      text-align: center;
+      margin-bottom: 20px;
+      cursor: pointer;
+      color: #aaa;
+      user-select: none;
+    }
+    canvas {
+      background: transparent;
+      margin-bottom: 20px;
+      border: 1px solid #444;
+    }
+    #gifOutput {
+      margin-top: 20px;
+    }
+    select, button {
+      margin-top: 10px;
+      font-size: 16px;
+      padding: 8px 12px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Anime Sword Slice GIF Maker with Multiple Effects</h1>
+
+  <div id="dropzone">Drag & Drop Image or Click to Browse</div>
+  <input type="file" id="fileInput" accept="image/*" style="display:none" />
+
+  <canvas id="canvas" width="400" height="400"></canvas>
+
+  <select id="effectSelect" disabled>
+    <option value="slice">Diagonal Slice</option>
+    <option value="shatter">Shatter Explosion</option>
+    <option value="pixelate">Pixelate</option>
+    <option value="glitch">Glitch</option>
+    <option value="wave">Wave</option>
+  </select>
+
+  <button id="createGifBtn" disabled>Create GIF</button>
+
+  <div id="gifOutput"></div>
+
+  <!-- Load gif.js -->
+  <script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+  <script>
+    const dropzone = document.getElementById('dropzone');
+    const fileInput = document.getElementById('fileInput');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const createGifBtn = document.getElementById('createGifBtn');
+    const gifOutput = document.getElementById('gifOutput');
+    const effectSelect = document.getElementById('effectSelect');
+
+    let img = new Image();
+    let scale = 1;
+
+    dropzone.addEventListener('click', () => fileInput.click());
+    dropzone.addEventListener('dragover', e => {
+      e.preventDefault();
+      dropzone.style.borderColor = 'white';
+    });
+    dropzone.addEventListener('dragleave', e => {
+      e.preventDefault();
+      dropzone.style.borderColor = '#888';
+    });
+    dropzone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropzone.style.borderColor = '#888';
+      const file = e.dataTransfer.files[0];
+      loadImage(file);
+    });
+    fileInput.addEventListener('change', e => {
+      const file = e.target.files[0];
+      loadImage(file);
+    });
+
+    function loadImage(file) {
+      if (!file || !file.type.startsWith('image/')) {
+        alert('Please select an image file');
+        return;
+      }
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        adjustCanvasSize();
+        drawImageCentered();
+        createGifBtn.disabled = false;
+        effectSelect.disabled = false;
+        gifOutput.innerHTML = '';
+      };
+      img.src = url;
+    }
+
+    function adjustCanvasSize() {
+      // Limit max dimension to 2000px for performance
+      const maxDim = 2000;
+      let w = img.width;
+      let h = img.height;
+      if (w > maxDim || h > maxDim) {
+        const ratio = Math.min(maxDim / w, maxDim / h);
+        w = w * ratio;
+        h = h * ratio;
+      }
+      canvas.width = w;
+      canvas.height = h;
+      scale = w / img.width;
+    }
+
+    function drawImageCentered() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    }
+
+    const totalFrames = 40;
+    const slideDistance = canvas.width / 2;
+
+    createGifBtn.addEventListener('click', () => {
+      createGifBtn.disabled = true;
+      gifOutput.innerHTML = 'Generating GIF...';
+
+      const gif = new GIF({
+        workers: 2,
+        quality: 10,
+        width: canvas.width,
+        height: canvas.height,
+        transparent: 0x000000,
+        workerScript: 'gif.worker.js'  // Make sure gif.worker.js is accessible locally
+      });
+
+      const effect = effectSelect.value;
+
+      for(let frame=0; frame<totalFrames; frame++) {
+        if (effect === 'slice') drawSliceFrame(frame);
+        else if (effect === 'shatter') drawShatterFrame(frame);
+        else if (effect === 'pixelate') drawPixelateFrame(frame);
+        else if (effect === 'glitch') drawGlitchFrame(frame);
+        else if (effect === 'wave') drawWaveFrame(frame);
+
+        gif.addFrame(ctx, {copy: true, delay: 50});
+      }
+
+      gif.on('finished', function(blob) {
+        gifOutput.innerHTML = '';
+        const url = URL.createObjectURL(blob);
+        const gifImg = document.createElement('img');
+        gifImg.src = url;
+        gifImg.style.border = '1px solid #ccc';
+        gifImg.style.background = 'transparent';
+        gifOutput.appendChild(gifImg);
+        createGifBtn.disabled = false;
+      });
+
+      gif.render();
+    });
+
+    // ==== EFFECTS ====
+
+    function drawSliceFrame(frame) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = 'black';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      const w = canvas.width;
+      const h = canvas.height;
+
+      const progress = frame / (totalFrames - 1);
+      const offset = slideDistance * progress;
+
+      // Top-left half polygon (above diagonal)
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(w, 0);
+      ctx.lineTo(0, h);
+      ctx.closePath();
+      ctx.clip();
+      ctx.translate(-offset, offset);
+      ctx.drawImage(img, 0, 0, w, h);
+      ctx.restore();
+
+      // Bottom-right half polygon (below diagonal)
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(w, h);
+      ctx.lineTo(w, 0);
+      ctx.lineTo(0, h);
+      ctx.closePath();
+      ctx.clip();
+      ctx.translate(offset, -offset);
+      ctx.drawImage(img, 0, 0, w, h);
+      ctx.restore();
+
+      drawGlowingSlashOpposite(0, 0, w, h, progress);
+    }
+
+    function drawGlowingSlashOpposite(x, y, w, h, progress) {
+      const opacity = Math.sin(progress * Math.PI) * 0.9;
+      const glowThickness = 12 * Math.sin(progress * Math.PI);
+      const coreThickness = 2;
+
+      ctx.save();
+      ctx.lineCap = 'round';
+
+      // Glow line from bottom-left to top-right
+      ctx.strokeStyle = `rgba(255,255,255,${(opacity * 0.5).toFixed(2)})`;
+      ctx.shadowColor = `rgba(255,255,255,${(opacity * 0.5).toFixed(2)})`;
+      ctx.shadowBlur = glowThickness;
+      ctx.lineWidth = glowThickness;
+      ctx.beginPath();
+      ctx.moveTo(x, y + h);
+      ctx.lineTo(x + w, y);
+      ctx.stroke();
+
+      // Core line
+      ctx.shadowBlur = 0;
+      ctx.lineWidth = coreThickness;
+      ctx.strokeStyle = `rgba(255,255,255,${opacity.toFixed(2)})`;
+      ctx.beginPath();
+      ctx.moveTo(x, y + h);
+      ctx.lineTo(x + w, y);
+      ctx.stroke();
+
+      ctx.restore();
+    }
+
+    function drawShatterFrame(frame) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = 'black';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      const w = canvas.width;
+      const h = canvas.height;
+
+      const pieces = 15;
+      const progress = frame / (totalFrames - 1);
+
+      const cols = 5;
+      const rows = 3;
+      const pieceW = w / cols;
+      const pieceH = h / rows;
+
+      for(let i=0; i<pieces; i++) {
+        const col = i % cols;
+        const row = Math.floor(i / cols);
+        const px = col * pieceW;
+        const py = row * pieceH;
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(px, py, pieceW, pieceH);
+        ctx.clip();
+
+        const centerX = w / 2;
+        const centerY = h / 2;
+        const pieceCenterX = px + pieceW / 2;
+        const pieceCenterY = py + pieceH / 2;
+        const angle = Math.atan2(pieceCenterY - centerY, pieceCenterX - centerX);
+
+        const maxDist = 300;
+        const dist = maxDist * progress * (0.7 + 0.6 * Math.random());
+
+        const rotation = progress * Math.PI * 2 * (0.5 + Math.random());
+
+        ctx.translate(pieceCenterX + dist * Math.cos(angle), pieceCenterY + dist * Math.sin(angle));
+        ctx.rotate(rotation);
+        ctx.translate(-pieceCenterX, -pieceCenterY);
+
+        ctx.drawImage(img, 0, 0, w, h);
+        ctx.restore();
+      }
+    }
+
+    function drawPixelateFrame(frame) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = 'black';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      const w = canvas.width;
+      const h = canvas.height;
+
+      const progress = frame / (totalFrames - 1);
+      const maxPixelSize = 50;
+      const pixelSize = 1 + maxPixelSize * progress;
+
+      ctx.imageSmoothingEnabled = false;
+
+      for(let py = 0; py < h; py += pixelSize) {
+        for(let px = 0; px < w; px += pixelSize) {
+          let sx = px / scale;
+          let sy = py / scale;
+          let sw = pixelSize / scale;
+          let sh = pixelSize / scale;
+
+          if (sx + sw > img.width) sw = img.width - sx;
+          if (sy + sh > img.height) sh = img.height - sy;
+
+          ctx.drawImage(img, sx, sy, sw, sh, px, py, pixelSize, pixelSize);
+        }
+      }
+      ctx.imageSmoothingEnabled = true;
+    }
+
+    function drawGlitchFrame(frame) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = 'black';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      const w = canvas.width;
+      const h = canvas.height;
+      const progress = frame / (totalFrames - 1);
+
+      const glitchAmount = 15 * Math.sin(progress * Math.PI);
+
+      // Draw slices with horizontal offset glitch
+      const sliceHeight = 10;
+      for(let y = 0; y < h; y += sliceHeight) {
+        const offsetX = glitchAmount * (Math.random() - 0.5);
+        ctx.drawImage(img, 0, y / scale, w / scale, sliceHeight / scale, offsetX, y, w, sliceHeight);
+      }
+    }
+
+    function drawWaveFrame(frame) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = 'black';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      const w = canvas.width;
+      const h = canvas.height;
+      const progress = frame / (totalFrames - 1);
+
+      const amplitude = 10;
+      const frequency = 0.05;
+      const phase = progress * Math.PI * 4;
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(0, 0, w, h);
+      ctx.clip();
+
+      for(let x = 0; x < w; x++) {
+        const offsetY = amplitude * Math.sin(frequency * x + phase);
+        ctx.drawImage(img, x / scale, 0, 1 / scale, h / scale, x, offsetY, 1, h);
+      }
+      ctx.restore();
+    }
+  </script>
+</body>
+</html>

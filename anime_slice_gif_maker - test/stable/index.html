@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Anime Slice GIF Maker</title>
+  <style>
+    body {
+      background: #111;
+      color: white;
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding-top: 20px;
+    }
+    #dropzone {
+      border: 2px dashed #666;
+      border-radius: 12px;
+      width: 400px;
+      height: 150px;
+      line-height: 150px;
+      text-align: center;
+      color: #888;
+      margin-bottom: 10px;
+      user-select: none;
+      transition: border-color 0.3s;
+      cursor: pointer;
+    }
+    #dropzone.dragover {
+      border-color: white;
+      color: white;
+      background-color: #222;
+    }
+    canvas {
+      background: transparent;
+      border: 2px solid white;
+      margin: 10px 0;
+    }
+    .controls {
+      margin-bottom: 20px;
+      width: 400px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    #preview {
+      margin-top: 10px;
+      max-width: 400px;
+      border: 1px solid white;
+    }
+  </style>
+</head>
+<body>
+  <h1>⚔️ Anime Slice GIF Maker</h1>
+
+  <div id="dropzone">Drag & Drop Image Here or Click to Browse</div>
+
+  <div class="controls">
+    <input type="file" id="imageLoader" accept="image/*" style="display:none" />
+    <select id="effectSelect">
+      <option value="diagonal">Diagonal Slice</option>
+      <option value="shatter">Shatter</option>
+    </select>
+    <button id="createGifBtn" disabled>Create GIF</button>
+  </div>
+
+  <canvas id="canvas" width="512" height="512"></canvas>
+  <img id="preview" alt="GIF Preview" />
+
+  <script src="https://cdn.jsdelivr.net/npm/gif.js@0.2.0/dist/gif.js"></script>
+  <script>
+    const dropzone = document.getElementById('dropzone');
+    const imageLoader = document.getElementById('imageLoader');
+    const createGifBtn = document.getElementById('createGifBtn');
+    const effectSelect = document.getElementById('effectSelect');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    const preview = document.getElementById('preview');
+
+    let image = null;
+    const totalFrames = 20;
+    const slideDistance = 200;
+
+    // Drag & Drop handlers
+    dropzone.addEventListener('click', () => imageLoader.click());
+
+    dropzone.addEventListener('dragover', e => {
+      e.preventDefault();
+      dropzone.classList.add('dragover');
+    });
+
+    dropzone.addEventListener('dragleave', e => {
+      e.preventDefault();
+      dropzone.classList.remove('dragover');
+    });
+
+    dropzone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropzone.classList.remove('dragover');
+      if (e.dataTransfer.files.length) {
+        loadImage(e.dataTransfer.files[0]);
+      }
+    });
+
+    // File input handler
+    imageLoader.addEventListener('change', e => {
+      if (e.target.files.length) {
+        loadImage(e.target.files[0]);
+      }
+    });
+
+    function loadImage(file) {
+      if (!file.type.startsWith('image/')) {
+        alert('Please drop a valid image file');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = function (event) {
+        const img = new Image();
+        img.onload = function () {
+          image = img;
+          canvas.width = img.width;
+          canvas.height = img.height;
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0);
+          createGifBtn.disabled = false;
+          preview.src = '';
+          preview.alt = 'GIF Preview';
+        };
+        img.src = event.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function drawDiagonalFrame(progress) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      if (!image) return;
+
+      const w = image.width;
+      const h = image.height;
+
+      const offset = slideDistance * progress;
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(w, 0);
+      ctx.lineTo(0, h);
+      ctx.closePath();
+      ctx.clip();
+      ctx.translate(-offset, offset);
+      ctx.drawImage(image, 0, 0);
+      ctx.restore();
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(w, h);
+      ctx.lineTo(w, 0);
+      ctx.lineTo(0, h);
+      ctx.closePath();
+      ctx.clip();
+      ctx.translate(offset, -offset);
+      ctx.drawImage(image, 0, 0);
+      ctx.restore();
+
+      drawGlowingSlashOpposite(0, 0, w, h, progress);
+    }
+
+    function drawGlowingSlashOpposite(x, y, w, h, progress) {
+      const opacity = Math.sin(progress * Math.PI) * 0.9;
+      const glowThickness = 12 * Math.sin(progress * Math.PI);
+      const coreThickness = 2;
+
+      ctx.save();
+      ctx.lineCap = 'round';
+
+      ctx.strokeStyle = `rgba(255,255,255,${(opacity * 0.5).toFixed(2)})`;
+      ctx.shadowColor = `rgba(255,255,255,${(opacity * 0.5).toFixed(2)})`;
+      ctx.shadowBlur = glowThickness;
+      ctx.lineWidth = glowThickness;
+      ctx.beginPath();
+      ctx.moveTo(x, y + h);
+      ctx.lineTo(x + w, y);
+      ctx.stroke();
+
+      ctx.shadowBlur = 0;
+      ctx.lineWidth = coreThickness;
+      ctx.strokeStyle = `rgba(255,255,255,${opacity.toFixed(2)})`;
+      ctx.beginPath();
+      ctx.moveTo(x, y + h);
+      ctx.lineTo(x + w, y);
+      ctx.stroke();
+
+      ctx.restore();
+    }
+
+    function drawShatterFrame(progress) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      if (!image) return;
+
+      const numPieces = 15;
+      const pieceWidth = Math.floor(image.width / 5);
+      const pieceHeight = Math.floor(image.height / 3);
+
+      for (let i = 0; i < numPieces; i++) {
+        const sx = (i % 5) * pieceWidth;
+        const sy = Math.floor(i / 5) * pieceHeight;
+
+        const dx = sx + (sx < image.width / 2 ? -1 : 1) * 200 * progress * Math.random();
+        const dy = sy + (sy < image.height / 2 ? -1 : 1) * 200 * progress * Math.random();
+
+        ctx.drawImage(
+          image,
+          sx, sy, pieceWidth, pieceHeight,
+          dx, dy, pieceWidth, pieceHeight
+        );
+      }
+    }
+
+    createGifBtn.addEventListener('click', () => {
+      if (!image) return;
+
+      createGifBtn.disabled = true;
+      preview.src = '';
+      preview.alt = 'Generating GIF...';
+
+      const gif = new GIF({
+        workers: 2,
+        quality: 10,
+        transparent: 0x000000,
+        workerScript: 'gif.worker.js',
+        width: canvas.width,
+        height: canvas.height,
+      });
+
+      const effect = effectSelect.value;
+
+      for (let i = 0; i <= totalFrames; i++) {
+        const progress = i / totalFrames;
+        if (effect === 'diagonal') {
+          drawDiagonalFrame(progress);
+        } else if (effect === 'shatter') {
+          drawShatterFrame(progress);
+        }
+        gif.addFrame(ctx, { copy: true, delay: 50 });
+      }
+
+      gif.on('finished', blob => {
+        preview.src = URL.createObjectURL(blob);
+        preview.alt = 'GIF Preview';
+        createGifBtn.disabled = false;
+      });
+
+      gif.render();
+    });
+  </script>
+</body>
+</html>
