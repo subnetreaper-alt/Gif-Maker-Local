@@ -20,7 +20,7 @@ http-server -p 8000
 
 ###### Go to in browser
 
-http://10.0.0.182:8000
+server http listed in cmd
 
 
 
@@ -40,7 +40,7 @@ http-server -p 8000
 
 Go to in browser
 
-http://10.0.0.182:8000
+server http listed in cmd
 
 
 
@@ -89,6 +89,7 @@ directory.
 ###### it takes awhile please understand it is limited to the capabilities of your pc 
 
 ###### and be patient.
+
 
 
 
