@@ -13,7 +13,7 @@ npm install -g http-server
 http-server -p 8000
 
 Go to in browser
-http://10.0.0.182:8000
+server http listed in cmd
 
 
 After First time
@@ -23,7 +23,7 @@ Run via cmd in folder
 http-server -p 8000
 
 Go to in browser
-http://10.0.0.182:8000
+server http listed in cmd
 
 
 Sidenote
