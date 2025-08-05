@@ -37,7 +37,7 @@ it is attempting to load files from the correct
 directory.
 
 The Pixelate function was a test only and does not really do much and I was too lazy
-to remove it lol but all other functions should would as intended.
+to remove it lol but all other functions should work as intended.
 
 All Gifs generated must be downloaded by right clicking on the generated gif 
 and saving them to your desired location.
